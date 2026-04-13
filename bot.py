@@ -22,6 +22,7 @@ def check_events():
     for e in events:
         event_time = e.begin.datetime
 
+        # если timezone отсутствует — добавляем UTC
         if event_time.tzinfo is None:
             event_time = event_time.replace(tzinfo=timezone.utc)
 
