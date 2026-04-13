@@ -1,6 +1,7 @@
 name: calendar bot
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "* * * * *"
 
