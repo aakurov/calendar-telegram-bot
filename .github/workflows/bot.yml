@@ -3,7 +3,10 @@ name: calendar bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    # GitHub Actions сильно троттлит короткие schedule-триггеры
+    # (*/5 на практике работает раз в 1-2 часа). Поэтому стартуем
+    # раз в час, а внутри джобы крутим bot.py в цикле каждую минуту.
+    - cron: "0 * * * *"
 
 concurrency:
   group: calendar-bot
@@ -12,6 +15,7 @@ concurrency:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 58
 
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +35,14 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python bot.py
+      - name: Run bot loop (~55 min)
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
           ICS_URL: ${{ secrets.ICS_URL }}
+        run: |
+          end=$(( $(date +%s) + 55*60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            python bot.py || echo "bot.py exited non-zero, continuing"
+            sleep 60
+          done
