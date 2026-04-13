@@ -10,56 +10,63 @@ ICS_URL = os.environ["ICS_URL"]
 
 bot = telegram.Bot(token=TOKEN)
 
+
 def get_events():
     r = requests.get(ICS_URL)
     c = Calendar(r.text)
     return list(c.events)
+
 
 def normalize_time(dt):
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
-def send_today_schedule(events):
+
+def debug_events(events):
     now = datetime.now(timezone.utc)
 
-    today_events = []
+    text = "🔎 Тест бота\n\nБлижайшие события:\n"
+
+    found = False
 
     for e in events:
         event_time = normalize_time(e.begin.datetime)
+        diff_minutes = int((event_time - now).total_seconds() / 60)
 
-        if event_time.date() == now.date():
-            today_events.append((event_time, e.name))
+        if -60 < diff_minutes < 1440:
+            found = True
+            text += f"{event_time.strftime('%H:%M')} — {e.name} ({diff_minutes} мин)\n"
 
-    if not today_events:
-        return
-
-    today_events.sort()
-
-    text = "📅 Сегодняшние встречи:\n\n"
-
-    for t, name in today_events:
-        text += f"{t.strftime('%H:%M')} — {name}\n"
+    if not found:
+        text += "нет ближайших событий"
 
     bot.send_message(CHAT_ID, text)
+
 
 def check_events():
     events = get_events()
     now = datetime.now(timezone.utc)
-
-    # утренний план (примерно 9:00)
-    if now.hour == 9 and now.minute < 2:
-        send_today_schedule(events)
 
     for e in events:
         event_time = normalize_time(e.begin.datetime)
 
         diff = (event_time - now).total_seconds()
 
-        if 240 < diff <= 300:
+        if 0 < diff <= 600:
             bot.send_message(
                 CHAT_ID,
-                f"⏰ Через 5 минут встреча:\n{e.name}\n{event_time.strftime('%H:%M')}"
+                f"⏰ Скоро встреча:\n{e.name}\n{event_time.strftime('%H:%M')}"
             )
 
+
+events = get_events()
+
+# сообщение что бот запустился
+bot.send_message(CHAT_ID, "✅ бот запустился")
+
+# показать события
+debug_events(events)
+
+# проверить уведомления
 check_events()
