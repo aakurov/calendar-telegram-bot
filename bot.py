@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -9,11 +10,28 @@ ICS_URL = os.environ["ICS_URL"]
 
 MSK = ZoneInfo("Europe/Moscow")
 
+STATE_FILE = "state.json"
+
+
 def send(text):
     requests.post(
         f"https://api.telegram.org/bot{TOKEN}/sendMessage",
         data={"chat_id": CHAT_ID, "text": text}
     )
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as f:
+            return json.load(f)
+    except:
+        return {"sent": [], "daily": ""}
+
+
+def save_state(state):
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f)
+
 
 def parse_time(raw):
     try:
@@ -25,34 +43,43 @@ def parse_time(raw):
         return None
 
 
-r = requests.get(ICS_URL)
-lines = r.text.splitlines()
+def get_events():
 
-events = []
+    r = requests.get(ICS_URL)
 
-summary = None
-dtstart = None
+    lines = r.text.splitlines()
 
-for line in lines:
+    events = []
 
-    if line.startswith("SUMMARY:"):
-        summary = line.replace("SUMMARY:", "").strip()
+    summary = None
+    dtstart = None
 
-    if "DTSTART" in line:
-        dtstart = line.split(":")[1].strip()
+    for line in lines:
 
-    if line.startswith("END:VEVENT"):
+        if line.startswith("SUMMARY:"):
+            summary = line.replace("SUMMARY:", "").strip()
 
-        if summary and dtstart:
+        if "DTSTART" in line:
+            dtstart = line.split(":")[1].strip()
 
-            t = parse_time(dtstart)
+        if line.startswith("END:VEVENT"):
 
-            if t:
-                events.append((t, summary))
+            if summary and dtstart:
 
-        summary = None
-        dtstart = None
+                t = parse_time(dtstart)
 
+                if t:
+                    events.append((t, summary))
+
+            summary = None
+            dtstart = None
+
+    return events
+
+
+state = load_state()
+
+events = get_events()
 
 now = datetime.now(MSK)
 
@@ -65,22 +92,43 @@ for t, name in events:
     if diff > 0:
         future.append((t, name, diff))
 
-
 future.sort()
 
-msg = "📅 Ближайшие события:\n\n"
+# --- Утренний план дня ---
 
-for t, name, diff in future[:5]:
+today = now.date()
 
-    minutes = int(diff / 60)
+if state["daily"] != str(today) and now.hour >= 9:
 
-    msg += f"{t.strftime('%H:%M')} — {name} ({minutes} мин)\n"
+    today_events = []
 
-    if 0 < diff <= 600:
+    for t, name, _ in future:
+        if t.date() == today:
+            today_events.append((t, name))
+
+    if today_events:
+
+        msg = "📅 Сегодня:\n\n"
+
+        for t, name in today_events:
+            msg += f"{t.strftime('%H:%M')} — {name}\n"
+
+        send(msg)
+
+    state["daily"] = str(today)
+
+# --- Напоминания о встречах ---
+
+for t, name, diff in future:
+
+    event_id = f"{name}-{t}"
+
+    if 0 < diff <= 600 and event_id not in state["sent"]:
 
         send(
             f"⏰ Через несколько минут встреча\n{name}\n{t.strftime('%H:%M')}"
         )
 
+        state["sent"].append(event_id)
 
-send(msg)
+save_state(state)
