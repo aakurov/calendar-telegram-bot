@@ -20,12 +20,17 @@ def check_events():
     now = datetime.now(timezone.utc)
 
     for e in events:
-        diff = (e.begin.datetime - now).total_seconds()
+        event_time = e.begin.datetime
+
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=timezone.utc)
+
+        diff = (event_time - now).total_seconds()
 
         if 0 < diff <= 300:
             bot.send_message(
                 CHAT_ID,
-                f"⏰ Через 5 минут встреча:\n{e.name}\n{e.begin:%H:%M}"
+                f"⏰ Через 5 минут встреча:\n{e.name}\n{event_time:%H:%M}"
             )
 
 check_events()
