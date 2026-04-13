@@ -130,5 +130,5 @@ for t, name, diff in future:
         )
 
         state["sent"].append(event_id)
-
+# activate cron
 save_state(state)
