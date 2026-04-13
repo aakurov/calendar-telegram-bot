@@ -1,6 +1,6 @@
 import requests
 from ics import Calendar
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import telegram
 
@@ -17,7 +17,7 @@ def get_events():
 
 def check_events():
     events = get_events()
-    now = datetime.now(e.begin.datetime.tzinfo)
+    now = datetime.now(timezone.utc)
 
     for e in events:
         diff = (e.begin.datetime - now).total_seconds()
