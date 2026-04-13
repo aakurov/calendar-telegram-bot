@@ -17,7 +17,7 @@ def get_events():
 
 def check_events():
     events = get_events()
-    now = datetime.utcnow()
+    now = datetime.now(e.begin.datetime.tzinfo)
 
     for e in events:
         diff = (e.begin.datetime - now).total_seconds()
