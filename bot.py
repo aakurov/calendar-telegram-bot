@@ -13,7 +13,7 @@ bot = telegram.Bot(token=TOKEN)
 def get_events():
     r = requests.get(ICS_URL)
     c = Calendar(r.text)
-    return c.events
+    return list(c.events)
 
 def check_events():
     events = get_events()
@@ -22,7 +22,7 @@ def check_events():
     for e in events:
         event_time = e.begin.datetime
 
-        # если timezone отсутствует — добавляем UTC
+        # делаем время события timezone-aware
         if event_time.tzinfo is None:
             event_time = event_time.replace(tzinfo=timezone.utc)
 
@@ -31,7 +31,7 @@ def check_events():
         if 0 < diff <= 300:
             bot.send_message(
                 CHAT_ID,
-                f"⏰ Через 5 минут встреча:\n{e.name}\n{event_time:%H:%M}"
+                f"⏰ Через 5 минут встреча:\n{e.name}\n{event_time.strftime('%H:%M')}"
             )
 
 check_events()
