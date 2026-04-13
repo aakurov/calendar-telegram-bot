@@ -12,8 +12,17 @@ def send(text):
         data={"chat_id": CHAT_ID, "text": text}
     )
 
-r = requests.get(ICS_URL)
+def parse_time(raw):
+    try:
+        if "T" in raw:
+            return datetime.strptime(raw[:15], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        else:
+            return datetime.strptime(raw[:8], "%Y%m%d").replace(tzinfo=timezone.utc)
+    except:
+        return None
 
+
+r = requests.get(ICS_URL)
 lines = r.text.splitlines()
 
 events = []
@@ -30,16 +39,45 @@ for line in lines:
         dtstart = line.split(":")[1].strip()
 
     if line.startswith("END:VEVENT"):
+
         if summary and dtstart:
-            events.append((summary, dtstart))
+
+            t = parse_time(dtstart)
+
+            if t:
+                events.append((t, summary))
 
         summary = None
         dtstart = None
 
 
-msg = "📅 Найденные события:\n\n"
+now = datetime.now(timezone.utc)
 
-for name, t in events[:10]:
-    msg += f"{name} | {t}\n"
+future = []
+
+for t, name in events:
+
+    diff = (t - now).total_seconds()
+
+    if diff > 0:
+        future.append((t, name, diff))
+
+
+future.sort()
+
+msg = "📅 Ближайшие события:\n\n"
+
+for t, name, diff in future[:5]:
+
+    minutes = int(diff / 60)
+
+    msg += f"{t.strftime('%Y-%m-%d %H:%M')} — {name} ({minutes} мин)\n"
+
+    if 0 < diff <= 600:
+
+        send(
+            f"⏰ Скоро встреча\n{name}\n{t.strftime('%H:%M')}"
+        )
+
 
 send(msg)
