@@ -25,7 +25,7 @@ def load_state():
         with open(STATE_FILE) as f:
             return json.load(f)
     except:
-        return {"sent": [], "daily": ""}
+        return {"sent": [], "morning": ""}
 
 
 def save_state(state):
@@ -46,7 +46,6 @@ def parse_time(raw):
 def get_events():
 
     r = requests.get(ICS_URL)
-
     lines = r.text.splitlines()
 
     events = []
@@ -94,15 +93,16 @@ for t, name in events:
 
 future.sort()
 
-# --- Утренний план дня ---
-
 today = now.date()
 
-if state["daily"] != str(today) and now.hour >= 9:
+# --- утренний план дня ---
+
+if state["morning"] != str(today) and now.hour >= 9:
 
     today_events = []
 
     for t, name, _ in future:
+
         if t.date() == today:
             today_events.append((t, name))
 
@@ -115,20 +115,20 @@ if state["daily"] != str(today) and now.hour >= 9:
 
         send(msg)
 
-    state["daily"] = str(today)
+    state["morning"] = str(today)
 
-# --- Напоминания о встречах ---
+# --- уведомления ---
 
 for t, name, diff in future:
 
     event_id = f"{name}-{t}"
 
-    if 0 < diff <= 600 and event_id not in state["sent"]:
+    if 0 < diff <= 900 and event_id not in state["sent"]:
 
         send(
-            f"⏰ Через несколько минут встреча\n{name}\n{t.strftime('%H:%M')}"
+            f"⏰ Скоро встреча\n{name}\n{t.strftime('%H:%M')}"
         )
 
         state["sent"].append(event_id)
-# activate cron
+
 save_state(state)
