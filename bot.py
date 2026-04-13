@@ -1,10 +1,13 @@
 import os
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 TOKEN = os.environ["TG_TOKEN"]
 CHAT_ID = os.environ["TG_CHAT"]
 ICS_URL = os.environ["ICS_URL"]
+
+MSK = ZoneInfo("Europe/Moscow")
 
 def send(text):
     requests.post(
@@ -15,9 +18,9 @@ def send(text):
 def parse_time(raw):
     try:
         if "T" in raw:
-            return datetime.strptime(raw[:15], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+            return datetime.strptime(raw[:15], "%Y%m%dT%H%M%S").replace(tzinfo=MSK)
         else:
-            return datetime.strptime(raw[:8], "%Y%m%d").replace(tzinfo=timezone.utc)
+            return datetime.strptime(raw[:8], "%Y%m%d").replace(tzinfo=MSK)
     except:
         return None
 
@@ -51,7 +54,7 @@ for line in lines:
         dtstart = None
 
 
-now = datetime.now(timezone.utc)
+now = datetime.now(MSK)
 
 future = []
 
@@ -71,12 +74,12 @@ for t, name, diff in future[:5]:
 
     minutes = int(diff / 60)
 
-    msg += f"{t.strftime('%Y-%m-%d %H:%M')} — {name} ({minutes} мин)\n"
+    msg += f"{t.strftime('%H:%M')} — {name} ({minutes} мин)\n"
 
     if 0 < diff <= 600:
 
         send(
-            f"⏰ Скоро встреча\n{name}\n{t.strftime('%H:%M')}"
+            f"⏰ Через несколько минут встреча\n{name}\n{t.strftime('%H:%M')}"
         )
 
 
