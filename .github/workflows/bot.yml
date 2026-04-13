@@ -3,18 +3,31 @@ name: calendar bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
+
+concurrency:
+  group: calendar-bot
+  cancel-in-progress: false
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: state.json
+          key: calendar-bot-state-${{ github.run_id }}
+          restore-keys: |
+            calendar-bot-state-
 
       - run: pip install -r requirements.txt
 
