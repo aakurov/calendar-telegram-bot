@@ -16,9 +16,10 @@ MSK = ZoneInfo("Europe/Moscow")
 STATE_FILE = "state.json"
 
 # Напоминаем за LEAD_MINUTES минут до встречи.
-# WINDOW_MINUTES — запас на дрейф cron в GitHub Actions (часто опаздывает).
+# WINDOW_MINUTES — небольшой запас на сетевые задержки; с внутренним
+# минутным циклом большой дрейф-буфер не нужен.
 LEAD_MINUTES = 5
-WINDOW_MINUTES = 5
+WINDOW_MINUTES = 1
 
 URL_RE = re.compile(r"https?://[^\s<>\"']+")
 # Что считаем ссылкой на видеовстречу (в порядке приоритета).
