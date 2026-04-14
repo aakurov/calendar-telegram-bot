@@ -16,10 +16,14 @@ MSK = ZoneInfo("Europe/Moscow")
 STATE_FILE = "state.json"
 
 # Напоминаем за LEAD_MINUTES минут до встречи.
-# WINDOW_MINUTES — небольшой запас на сетевые задержки; с внутренним
-# минутным циклом большой дрейф-буфер не нужен.
+# WINDOW_MINUTES — запас на разрыв между часовыми cron-джобами в GitHub
+# Actions: каждая джоба крутит bot.py ~55 минут, после чего до старта
+# следующей проходит 5+ минут (плюс типичная задержка cron-триггера GH).
+# Без этого запаса событие, попадающее в «слепую зону» на границе часа
+# (например, встреча в 10:02 — предыдущая джоба закончилась в 9:55,
+# следующая стартовала в 10:03), не ловит метку «за 5 минут».
 LEAD_MINUTES = 5
-WINDOW_MINUTES = 1
+WINDOW_MINUTES = 5
 
 URL_RE = re.compile(r"https?://[^\s<>\"']+")
 # Что считаем ссылкой на видеовстречу (в порядке приоритета).
@@ -35,15 +39,20 @@ MEETING_HOST_PRIORITY = (
 
 
 def send(text):
-    requests.post(
-        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-        data={
-            "chat_id": CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": "true",
-        },
-        timeout=30,
-    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            data={
+                "chat_id": CHAT_ID,
+                "text": text,
+                "disable_web_page_preview": "true",
+            },
+            timeout=30,
+        )
+        return True
+    except Exception as e:
+        print(f"Telegram send failed: {e}")
+        return False
 
 
 def load_state():
@@ -168,7 +177,10 @@ def main():
                 if url:
                     line += f"\n{url}"
                 lines.append(line)
-            send("\n".join(lines))
+            if not send("\n".join(lines)):
+                # не помечаем день как обработанный — попробуем в след. итерации
+                save_state(state)
+                return
         state["morning"] = str(today)
 
     # --- напоминания за ~LEAD_MINUTES минут ---
@@ -185,8 +197,8 @@ def main():
             msg = f"⏰ Через ~{mins_left} мин\n{name}\n{t.strftime('%H:%M')}"
             if url:
                 msg += f"\n{url}"
-            send(msg)
-            sent_ids.add(event_id)
+            if send(msg):
+                sent_ids.add(event_id)
 
     # Чистим старые id, чтобы state.json не рос бесконечно
     cutoff = (now - timedelta(days=2)).isoformat()
