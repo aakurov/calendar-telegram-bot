@@ -3,14 +3,16 @@ name: calendar bot
 on:
   workflow_dispatch:
   schedule:
-    # GitHub Actions сильно троттлит короткие schedule-триггеры
-    # (*/5 на практике работает раз в 1-2 часа). Поэтому стартуем
-    # раз в час, а внутри джобы крутим bot.py в цикле каждую минуту.
-    - cron: "0 * * * *"
+    # Cron как safety net. Основной механизм — self-chain в конце job'а.
+    - cron: "*/30 * * * *"
 
 concurrency:
   group: calendar-bot
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # нужно для gh workflow run (self-dispatch)
 
 jobs:
   run-bot:
@@ -46,3 +48,9 @@ jobs:
             python bot.py || echo "bot.py exited non-zero, continuing"
             sleep 60
           done
+
+      - name: Chain next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run bot.yml --ref ${{ github.ref_name }}
